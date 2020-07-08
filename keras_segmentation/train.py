@@ -69,7 +69,8 @@ def train(model,
           ignore_zero_class=False,
           optimizer_name='adadelta',
           do_augment=False,
-          augmentation_name="aug_all"):
+          augmentation_name="aug_all",
+          class_weight=None):
 
     from .models.all_models import model_from_name
     # check if user gives model name instead of the model object
@@ -154,11 +155,12 @@ def train(model,
 
     if not validate:
         model.fit_generator(train_gen, steps_per_epoch,
-                            epochs=epochs, callbacks=callbacks)
+                            epochs=epochs, callbacks=callbacks, class_weight=class_weight)
     else:
         model.fit_generator(train_gen,
                             steps_per_epoch,
                             validation_data=val_gen,
                             validation_steps=val_steps_per_epoch,
                             epochs=epochs, callbacks=callbacks,
-                            use_multiprocessing=gen_use_multiprocessing)
+                            use_multiprocessing=gen_use_multiprocessing,
+                            class_weight=class_weight)

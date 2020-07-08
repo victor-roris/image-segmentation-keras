@@ -128,7 +128,7 @@ def visualize_segmentation(seg_arr, inp_img=None, n_classes=None,
 def predict(model=None, inp=None, out_fname=None,
             checkpoints_path=None, overlay_img=False,
             class_names=None, show_legends=False, colors=class_colors,
-            prediction_width=None, prediction_height=None):
+            prediction_width=None, prediction_height=None, threshold=None, default_class=0):
 
     if model is None and (checkpoints_path is not None):
         model = model_from_checkpoint_path(checkpoints_path)
@@ -152,6 +152,9 @@ def predict(model=None, inp=None, out_fname=None,
                         ordering=IMAGE_ORDERING)
     pr = model.predict(np.array([x]))[0]
     pr = pr.reshape((output_height,  output_width, n_classes)).argmax(axis=2)
+    if threshold is not None:
+        max_pr = pr.reshape((output_height,  output_width, n_classes)).max(axis=2)
+        pr[max_pr < threshold] = default_class
 
     seg_img = visualize_segmentation(pr, inp, n_classes=n_classes,
                                      colors=colors, overlay_img=overlay_img,

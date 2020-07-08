@@ -1,5 +1,59 @@
 # Image Segmentation Keras : Implementation of Segnet, FCN, UNet, PSPNet and other models in Keras.
 
+## Personal modifications
+
+Following @brais proposals:
+
+  1. **[In your code]** Don't uses the `keras` library. Use `tensorflow.keras`. The `keras` library keeps the `tensorflow 1.x` compatibility but it is not optimized to `tensorflow 2.x` This is very slower than `tensorflow.keras`. If you can't modify it, use the version 1 of `tensorflow`.
+  
+	  ```
+	  import tensorflow.keras as keras
+	  keras.__version__
+	  ```
+  
+  2. **[In your code]** Use the parameter: `do_augment=True` if your goal images are variable (text documents are diferents if they are reports, articles, books, ...). It adds diff kinds of noises that it should improve the response in real cases.
+  
+	``` 
+	model.train(
+	  ...
+	  do_augment = True,
+	  ...
+	)
+	```
+
+   3. Función `train` modified. The goal of this modification is that the code uses the class balance, with the param `class_weight`. To calculate the vector `class_weight`:
+   
+     ```
+     n_pixels_per_class = {n. pixels by class in all the dataset}
+     class_weight = 1. / n_class * np.sum(n_pixels_per_class) / np.asarray(n_pixels_per_class)
+     ```
+     
+     **Note**: for a huge dataset, I used a representative part of the full dataset (ex., from 400000 examples I use 100000). By the `large numbers` theorem ([link](https://en.wikipedia.org/wiki/Law_of_large_numbers)) it can be representative enought of the all the dataset.
+     
+     To use this param:
+    
+	``` 
+	model.train(
+	  ...
+	  class_weight = {class_weight},
+	  ...
+	)
+	```
+     
+     4. Función `evaluate` modified. This change makes that the code put as `background` the prediction if the predicted class is lower than threshold (variable `threshold`)
+     
+	``` 
+	model.predict(
+	  ...
+	  threshold = {threshold},
+	  ...
+	)
+	```
+
+
+----
+
+
 [![PyPI version](https://badge.fury.io/py/keras-segmentation.svg)](https://badge.fury.io/py/keras-segmentation)
 [![Downloads](https://pepy.tech/badge/keras-segmentation)](https://pepy.tech/project/keras-segmentation)
 [![Build Status](https://travis-ci.org/divamgupta/image-segmentation-keras.png)](https://travis-ci.org/divamgupta/image-segmentation-keras)
