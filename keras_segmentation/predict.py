@@ -14,12 +14,10 @@ from .data_utils.data_loader import get_image_array, get_segmentation_array,\
     DATA_LOADER_SEED, class_colors, get_pairs_from_paths
 from .models.config import IMAGE_ORDERING
 
-
 random.seed(DATA_LOADER_SEED)
 
 
 def model_from_checkpoint_path(checkpoints_path):
-
     from .models.all_models import model_from_name
     assert (os.path.isfile(checkpoints_path+"_config.json")
             ), "Checkpoint not found."
@@ -51,7 +49,6 @@ def get_colored_segmentation_image(seg_arr, n_classes, colors=class_colors):
 
 
 def get_legends(class_names, colors=class_colors):
-
     n_classes = len(class_names)
     legend = np.zeros(((len(class_names) * 25) + 25, 125, 3),
                       dtype="uint8") + 255
@@ -79,7 +76,6 @@ def overlay_seg_image(inp_img, seg_img):
 
 
 def concat_lenends(seg_img, legend_img):
-
     new_h = np.maximum(seg_img.shape[0], legend_img.shape[0])
     new_w = seg_img.shape[1] + legend_img.shape[1]
 
@@ -95,7 +91,6 @@ def visualize_segmentation(seg_arr, inp_img=None, n_classes=None,
                            colors=class_colors, class_names=None,
                            overlay_img=False, show_legends=False,
                            prediction_width=None, prediction_height=None):
-
     if n_classes is None:
         n_classes = np.max(seg_arr)
 
@@ -129,7 +124,6 @@ def predict(model=None, inp=None, out_fname=None,
             checkpoints_path=None, overlay_img=False,
             class_names=None, show_legends=False, colors=class_colors,
             prediction_width=None, prediction_height=None):
-
     if model is None and (checkpoints_path is not None):
         model = model_from_checkpoint_path(checkpoints_path)
 
@@ -170,7 +164,6 @@ def predict_multiple(model=None, inps=None, inp_dir=None, out_dir=None,
                      checkpoints_path=None, overlay_img=False,
                      class_names=None, show_legends=False, colors=class_colors,
                      prediction_width=None, prediction_height=None):
-
     if model is None and (checkpoints_path is not None):
         model = model_from_checkpoint_path(checkpoints_path)
 
@@ -204,6 +197,70 @@ def predict_multiple(model=None, inps=None, inp_dir=None, out_dir=None,
     return all_prs
 
 
+# ---------------------------------------------------------------------------------------------------------------------
+# -- CUSTOM PREDICTION
+
+def batch_inps(inps, n=1):
+    length = len(inps)
+    for ndx in range(0, length, n):
+        yield inps[ndx:min(ndx + n, length)]
+
+
+def batch_prediction(model=None, inps=None, inp_dir=None, checkpoints_path=None):
+    if model is None and (checkpoints_path is not None):
+        model = model_from_checkpoint_path(checkpoints_path)
+
+    if inps is None and (inp_dir is not None):
+        inps = glob.glob(os.path.join(inp_dir, "*.jpg")) + glob.glob(
+            os.path.join(inp_dir, "*.png")) + \
+               glob.glob(os.path.join(inp_dir, "*.jpeg"))
+        inps = sorted(inps)
+
+    assert type(inps) is list
+
+    input_width = model.input_width
+    input_height = model.input_height
+    output_width = model.output_width
+    output_height = model.output_height
+    n_classes = model.n_classes
+
+    _inps = []
+    for inp in inps.copy():
+        assert ((type(inp) is np.ndarray) or isinstance(inp, six.string_types)), \
+            "Input should be the CV image or the input file name"
+
+        if isinstance(inp, six.string_types):
+            inp = cv2.imread(inp)
+
+        assert len(inp.shape) == 3, "Image should be h,w,3 "
+
+        x = get_image_array(inp, input_width, input_height, ordering=IMAGE_ORDERING)
+        _inps.append(np.array([x]))
+    inps = _inps
+
+    # Reshape input to all
+    x = np.array(inps).reshape((len(inps), input_height, input_width, 3))
+
+    # -- Predict all the inputs
+    # pr = model.predict(x, batch_size=5)
+    # pr = pr.reshape((len(inps), output_height,  output_width, n_classes)).argmax(axis=3)
+    # return pr
+
+    # -- Predict by batch the inputs
+    all_prs = None
+    for batch in batch_inps(x, 32):
+        pr = model.predict(batch)
+        pr = pr.reshape((len(batch), output_height, output_width, n_classes)).argmax(axis=3)
+
+        if all_prs is None:
+            all_prs = pr
+        else:
+            all_prs = np.concatenate((all_prs, pr), axis=0)
+    return all_prs
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+
 def set_video(inp, video_name):
     cap = cv2.VideoCapture(inp)
     fps = int(cap.get(cv2.CAP_PROP_FPS))
@@ -219,7 +276,6 @@ def predict_video(model=None, inp=None, output=None,
                   checkpoints_path=None, display=False, overlay_img=True,
                   class_names=None, show_legends=False, colors=class_colors,
                   prediction_width=None, prediction_height=None):
-
     if model is None and (checkpoints_path is not None):
         model = model_from_checkpoint_path(checkpoints_path)
     n_classes = model.n_classes
@@ -256,7 +312,6 @@ def predict_video(model=None, inp=None, output=None,
 
 def evaluate(model=None, inp_images=None, annotations=None,
              inp_images_dir=None, annotations_dir=None, checkpoints_path=None):
-
     if model is None:
         assert (checkpoints_path is not None),\
                 "Please provide the model or the checkpoints_path"
@@ -291,7 +346,6 @@ def evaluate(model=None, inp_images=None, annotations=None,
         gt = gt.flatten()
 
         for cl_i in range(model.n_classes):
-
             tp[cl_i] += np.sum((pr == cl_i) * (gt == cl_i))
             fp[cl_i] += np.sum((pr == cl_i) * ((gt != cl_i)))
             fn[cl_i] += np.sum((pr != cl_i) * ((gt == cl_i)))
